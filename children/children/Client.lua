@@ -10,13 +10,12 @@ type CmdResult = {
 	Color : Color3
 }
 
-local ClientMessageRemote : RemoteEvent = game:GetService("ReplicatedStorage"):WaitForChild("Moderation_CmdsEvent")
+local ClientMessageRemote : RemoteEvent = game:GetService("ReplicatedStorage"):WaitForChild("Watchdog_CmdsEvent")
 local StarterGui = game:GetService("StarterGui")
 
 StarterGui:SetCore("ChatWindowSize", UDim2.fromScale(0.35, 0.4))
 
 ClientMessageRemote.OnClientEvent:Connect(function(result : CmdResult)
-	print(result)
 	task.wait() -- to make sure message doesn't show before player's cmd
 	
 	StarterGui:SetCore("ChatMakeSystemMessage", {
