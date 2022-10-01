@@ -76,7 +76,7 @@ local function FetchData(key : string, ChatMod : Player?) : (boolean, Data)
 	return false, {}
 end
 
-local function WriteToData(key : string, data : Data, ChatMod: Player?) : boolean
+local function WriteToData(key : string, data_to_add : Data, ChatMod: Player?) : boolean
 	if not key then
 		SendMsgToClient(ChatMod, ClientErrorMessages.INVALID_KEY)
 		warn(ClientErrorMessages.INVALID_KEY) 
@@ -88,7 +88,17 @@ local function WriteToData(key : string, data : Data, ChatMod: Player?) : boolea
 	for attempt = 1, MAX_PCALL_ATTEMPTS do
 		success, msg = pcall(function()
 			return WatchdogStore:UpdateAsync(key, function(old)
-				return data
+				old = old or {}
+				
+				for key, value in pairs(data_to_add) do
+					if type(key) == "number" then
+						table.insert(old, key, value)
+					else
+						old[key] = (value ~= false) and value or nil -- set values to false to remove them from data
+					end
+				end
+				
+				return old
 			end)
 		end)
 
@@ -177,6 +187,25 @@ local function IsModerator(moderator : User, ChatMod : Player?) : string?
 	return Moderators[id]
 end
 
+local function GetRemainingBanDuration(duration : number) : string
+	local remaining = duration
+	local result = ""
+	
+	for index, interval in ipairs(Settings.TimeIntervals) do
+		local value = math.floor(remaining / math.max(interval.Value, 1))
+		if value < 1 then continue end
+		
+		if #result > 0 then
+			result = result .. ", "
+		end
+		
+		result = string.format("%s%d %s", result, value, (value ~= 1) and interval.Name or string.sub(interval.Name, 1, #interval.Name - 1))
+		remaining -= value * interval.Value
+	end
+	
+	return result
+end
+
 local Watchdog = {}
 
 function Watchdog.Verify(user : User, ChatMod : Player?) : boolean?
@@ -240,13 +269,10 @@ function Watchdog.AddMod(new_moderator : User, ChatMod : Player?) : boolean?
 		return warn(ClientErrorMessages.INVALID_USER, "Sent:", new_moderator)
 	end
 	
-	local fetch_success, added_mods = FetchData(MODS_DS_KEY, ChatMod)
-	if not fetch_success then return end
-
-	added_mods[tostring(id)] = name -- store string to avoid datastore mixed keys rule (unordered number keys)
+	local mods_to_add = {[tostring(id)] = name} -- store key as string to avoid datastore mixed keys rule (unordered number keys)
 	Moderators[id] = name
-
-	local update_success = WriteToData(MODS_DS_KEY, added_mods, ChatMod)
+	
+	local update_success = WriteToData(MODS_DS_KEY, mods_to_add, ChatMod)
 	if not update_success then return end
 
 	local publish_success = PublishMessage("UpdateMods", {
@@ -267,13 +293,11 @@ function Watchdog.RemoveMod(old_moderator : User, ChatMod : Player?) : boolean?
 		return warn(error_message)
 	end
 	
-	local fetch_success, added_mods = FetchData(MODS_DS_KEY, ChatMod)
-	if not fetch_success then return end
-	
-	added_mods[tostring(id)] = nil -- keys saved as strings cos they're not in numerical order
+	local mods_to_remove = {[tostring(id)] = false} -- keys saved as strings cos they're not in numerical order
+	-- set to false so function knows to remove them from data
 	Moderators[id] = nil
 
-	local update_success = WriteToData(MODS_DS_KEY, added_mods, ChatMod)
+	local update_success = WriteToData(MODS_DS_KEY, mods_to_remove, ChatMod)
 	if not update_success then return end
 
 	PublishMessage("UpdateMods", {
@@ -323,22 +347,18 @@ function Watchdog.Note(user : User, moderator : User, note : string, ChatMod : P
 
 	local id = GetId(user, ChatMod) :: number
 	if not id then return end
-
-	local key = NOTES_DS_KEY .. tostring(id)
-
-	local fetch_success, notes = FetchData(key, ChatMod)
-	if not fetch_success then return end
 	
-	table.insert(notes, 1, {
-		Date = os.date(),
-		Note = note,
-		Moderator = mod :: string,
-		Server = ServerId,
-		Traceback = debug.traceback()
-	})
+	local new_log = {
+		{
+			Date = os.date(),
+			Note = note,
+			Moderator = mod :: string,
+			Server = ServerId,
+			Traceback = debug.traceback()
+		}
+	}
 
-	WriteToData(key, notes, ChatMod)
-	return true
+	return WriteToData(NOTES_DS_KEY .. tostring(id), new_log, ChatMod)
 end
 
 function Watchdog.Kick(user : User, moderator : User, reason : string?, format : string?, ChatMod : Player?) : boolean?
@@ -351,19 +371,17 @@ function Watchdog.Kick(user : User, moderator : User, reason : string?, format :
 	reason = reason or DEFAULT_KICK_REASON
 	format = format or "none"
 	
-	local key = KICKS_DS_KEY .. tostring(id)
-	local fetch_success, kick_logs = FetchData(key, ChatMod)
-	if not fetch_success then return end
-	
-	table.insert(kick_logs, 1, {
-		Date = os.date(),
-		Reason = string.format("%s (%s)", reason :: string, format :: string),
-		Moderator = mod :: string,
-		Server = ServerId,
-		Traceback = debug.traceback()
-	})
+	local new_log = {
+		{
+			Date = os.date(),
+			Reason = string.format("%s (%s)", reason :: string, format :: string),
+			Moderator = mod :: string,
+			Server = ServerId,
+			Traceback = debug.traceback()
+		}
+	}
 
-	WriteToData(key, kick_logs, ChatMod)
+	WriteToData(KICKS_DS_KEY .. tostring(id), new_log, ChatMod)
 
 	local player = Players:GetPlayerByUserId(id)
 	if player then
@@ -391,27 +409,24 @@ function Watchdog.Ban(user : User, moderator : User, duration : number, reason :
 
 	reason = reason or DEFAULT_BAN_REASON
 	
-	local key = BANS_DS_KEY .. tostring(id)
-	local fetch_success, ban_logs = FetchData(key, ChatMod)
-	if not fetch_success then return end
+	local new_log = {
+		{
+			Banned = true,
+			Date = os.date(),
+			Reason = reason,
+			Moderator = mod :: string,
+			Server = ServerId,
+			Traceback = debug.traceback(),
+			TimeOfBan = os.time(),
+			Duration = math.round(duration),
+		}
+	}
 	
-	if ban_logs[1] and ban_logs[1].Banned then
-		SendMsgToClient(ChatMod, ClientErrorMessages.INVALID_BAN_TARGET)
-		warn(ClientErrorMessages.INVALID_BAN_TARGET) return
+	if duration >= 0 then
+		reason = string.format("%s \n(%s)", reason :: string, GetRemainingBanDuration(duration))
 	end
 	
-	table.insert(ban_logs, 1, {
-		Banned = true,
-		Date = os.date(),
-		Reason = reason,
-		Moderator = mod :: string,
-		Server = ServerId,
-		Traceback = debug.traceback(),
-		TimeOfBan = os.time(),
-		Duration = math.round(duration),
-	})
-
-	WriteToData(key, ban_logs)
+	WriteToData(BANS_DS_KEY .. tostring(id), new_log, ChatMod)
 	Watchdog.Kick(id :: number, -1, reason, nil, ChatMod)
 	return true
 end
@@ -428,22 +443,25 @@ function Watchdog.Unban(id : number, moderator : User, reason : string?, ChatMod
 	local fetch_success, ban_logs = FetchData(key, ChatMod)
 	if not fetch_success then return end
 	
+	print(ban_logs)
+	
 	if ban_logs[1] and not ban_logs[1].Banned then
 		SendMsgToClient(ChatMod, ClientErrorMessages.INVALID_UNBAN_TARGET)
 		warn(ClientErrorMessages.INVALID_UNBAN_TARGET) return
 	end
 	
-	table.insert(ban_logs, 1, {
-		Banned = false,
-		Date = os.date(),
-		Reason = reason,
-		Moderator = mod :: string,
-		Server = ServerId,
-		Traceback = debug.traceback()
-	})
+	local new_log = {
+		{
+			Banned = false,
+			Date = os.date(),
+			Reason = reason,
+			Moderator = mod :: string,
+			Server = ServerId,
+			Traceback = debug.traceback()
+		}
+	}
 
-	WriteToData(key, ban_logs, ChatMod)
-	return true
+	return WriteToData(BANS_DS_KEY .. tostring(id), new_log, ChatMod)
 end
 
 function Watchdog.Cmds() : List
