@@ -1,17 +1,26 @@
-local Moderation = require(script.Moderation)
+local Watchdog = require(script.Watchdog)
 local ChatCmds = require(script.ChatCmds)
 
 local Players = game:GetService("Players")
+local CheckedPlayers = {}
 
 local function OnPlayerAdded(player : Player)
-	if not Moderation.Verify(player) then return end
+	if CheckedPlayers[player] then return end
+	CheckedPlayers[player] = true
 	
-	if Moderation.GetMods()[player.UserId] then
+	if not Watchdog.Verify(player) then return end
+	
+	if Watchdog.GetMods()[player.UserId] then
 		ChatCmds.EnableChatCmds(player)
 	end
 end
 
+local function OnPlayerRemoving(player : Player)
+	CheckedPlayers[player] = nil
+end
+
 Players.PlayerAdded:Connect(OnPlayerAdded)
+Players.PlayerRemoving:Connect(OnPlayerRemoving)
 for _, player in ipairs(Players:GetPlayers()) do
 	OnPlayerAdded(player)
 end
