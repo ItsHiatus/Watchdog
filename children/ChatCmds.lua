@@ -7,17 +7,12 @@ local PREFIX = Settings.Prefix
 local TARGETING_CMDS = Settings.TargetingCmds -- add function names that require a target as 1st arg
 local LOGGING_CMDS = Settings.LoggingCmds -- add function names here that require the moderator as 2nd arg (e.g. for logging purposes)
 
-local MSG_BRACKETS = Settings.MSG_BRACKETS
-
 local CLIENT_ERROR_MSGS = Settings.ClientErrorMessages
 --
 
 local Watchdog = require(script.Parent.Watchdog)
 local GenerateMessage = require(script.GenerateMessage)
 local ParseArgs = require(script.ParseArgs)
-
-local Parser = ParseArgs.Parse
-ParseArgs.LoadMsgBrackets(MSG_BRACKETS)
 
 local ClientCmdScript = script.Watchdog_Client
 local Players = game:GetService("Players")
@@ -120,7 +115,7 @@ local function OnPlayerChatted(player : Player, message : string)
 		GenerateMessage.fromResult(player, string.format(CLIENT_ERROR_MSGS.INVALID_CMD, tostring(cmd)), "error") return
 	end
 	
-	local args : {any} = Parser(rest_of_msg or "")
+	local args : {any} = ParseArgs(rest_of_msg or "")
 	for i, arg in ipairs(args) do
 		args[i] = tonumber(arg) or arg
 	end
