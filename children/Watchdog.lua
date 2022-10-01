@@ -1,53 +1,37 @@
 --!strict
-
 -- Settings
-local DefaultModerators : {string} = {
-	[-1] = "Server", -- id -1 is reserved for game
-	[12545525] = "Im_Hiatus",
-}
+local Settings = require(script.Parent.Settings)
 
-local KickMessageFormats = {
-	error = "\n%s. \n(If this problem persists, please contact support)",
-	sus = "Suspicious activity detected: %s.",
-	none = "%s"
-}
+local DefaultModerators = Settings.DefaultMods
+local KickMessageFormats = Settings.KickMessageFormats
 
-local DEFAULT_KICK_REASON = "None"
-local DEFAULT_BAN_REASON = "None"
-local DEFAULT_UNBAN_REASON = "No reason given"
+local DEFAULT_KICK_REASON = Settings.DefaultReasons.Kick
+local DEFAULT_BAN_REASON = Settings.DefaultReasons.Ban
+local DEFAULT_UNBAN_REASON = Settings.DefaultReasons.Unban
 
 local MAX_PCALL_ATTEMPTS = 10
-type Subscription = "UpdateMods" | "KickPlayer" -- for MessagingService
+type Subscription = Settings.Subscription
 
 local MODS_DS_KEY = "Mods_1_"
 local BANS_DS_KEY = "Bans_1_"
 local KICKS_DS_KEY = "Kicks_1_"
 local NOTES_DS_KEY = "Notes_1_"
 
--- CLIENT ERROR MESSAGES
-local INVALID_KEY = "Please provide a valid key!"
-local INVALID_TOPIC = "Please provide a valid topic to publish to!"
-local INVALID_USER = "Please provide a valid Player or UserId!"
-local INVALID_USERID = "Please provide a valid UserId!"
-local INVALID_MOD = "%s does not have mod perms!"
-local INVALID_NOTE = "Please provide a valid note!"
-local INVALID_BAN_DURATION = "Please provide a valid duration!"
-local INVALID_BAN_TARGET = "Player is already banned!"
-local INVALID_UNBAN_TARGET = "Player is already unbanned!"
-
-local FAILED_DATA_RETRIEVAL = "Failed to retrieve data from Roblox servers. Please try again later.\nProblem: %s"
-local FAILED_DATA_WRITE = "Failed to write data to Roblox servers. Please try again later.\nProblem: %s"
-local FAILED_PUBLISH_TO_TOPIC = "Failed to publish to %s. Please try again later.\nError: %s"
-
-local NO_MOD_LIST = "Mod list has not been fetched yet (Call UpdateMods())"
+-- Client Error Messages
+local ClientErrorMessages = Settings.ClientErrorMessages
+local NO_MOD_LIST = "No mod list! (Call UpdateMods())"
+local FAILED_DATA_RETRIEVAL = "Failed to fetch data from Roblox servers. Please try again later.\nReason: %s"
+local FAILED_DATA_UPDATE = "Failed to update data on Roblox servers. Please try again later.\nReason: %s"
+local FAILED_PUBLISH_TO_TOPIC = "Failed to publish to %s. Please try again later. Error: %s"
 --
 
-type Data = {[any] : any}
-type List = {string}
+type List = Settings.List
+type Data = Settings.Data
+type DataDict = Settings.DataDict
 type Message = {Data : any, Sent : number}
 
-type User = Player | number
-type LogCategory = "Notes"|"Bans"|"Kicks"
+type User = Settings.User
+type LogCategory = Settings.LogCategory
 
 local GenerateMessage = require(script.Parent.ChatCmds.GenerateMessage)
 
@@ -55,8 +39,14 @@ local MessagingService = game:GetService("MessagingService")
 local Players = game:GetService("Players")
 local ServerId = (game:GetService("RunService"):IsStudio()) and "Studio" or game.JobId
 
-local ModerationStore : DataStore = game:GetService("DataStoreService"):GetDataStore("Moderation_1")
+local WatchdogStore : DataStore = game:GetService("DataStoreService"):GetDataStore("Watchdog_1")
 local Moderators : List
+
+local LogCategories = {
+	notes = NOTES_DS_KEY,
+	bans = BANS_DS_KEY,
+	kicks = KICKS_DS_KEY
+}
 
 local function SendMsgToClient(ChatMod : Player?, message : string, msg_type : ("error"|"normal")?)
 	if not ChatMod then return end
@@ -65,8 +55,8 @@ end
 
 local function FetchData(key : string, ChatMod : Player?) : (boolean, Data)
 	if not key then
-		SendMsgToClient(ChatMod, INVALID_KEY)
-		warn(INVALID_KEY)
+		SendMsgToClient(ChatMod, ClientErrorMessages.INVALID_KEY)
+		warn(ClientErrorMessages.INVALID_KEY)
 		return false, {}
 	end
 
@@ -74,22 +64,22 @@ local function FetchData(key : string, ChatMod : Player?) : (boolean, Data)
 
 	for attempt = 1, MAX_PCALL_ATTEMPTS do
 		success, result = pcall(function()
-			return ModerationStore:GetAsync(key)
+			return WatchdogStore:GetAsync(key)
 		end)
 
 		if success then return success, result or {} end
 	end
 	
-	local error_msg = string.format(FAILED_DATA_RETRIEVAL, result)
-	SendMsgToClient(ChatMod, error_msg)
-	warn(error_msg) 
+	local error_message = string.format(FAILED_DATA_RETRIEVAL, result)
+	SendMsgToClient(ChatMod, error_message)
+	warn(error_message) 
 	return false, {}
 end
 
 local function WriteToData(key : string, data : Data, ChatMod: Player?) : boolean
 	if not key then
-		SendMsgToClient(ChatMod, INVALID_KEY)
-		warn(INVALID_KEY) 
+		SendMsgToClient(ChatMod, ClientErrorMessages.INVALID_KEY)
+		warn(ClientErrorMessages.INVALID_KEY) 
 		return false
 	end
 
@@ -97,17 +87,17 @@ local function WriteToData(key : string, data : Data, ChatMod: Player?) : boolea
 
 	for attempt = 1, MAX_PCALL_ATTEMPTS do
 		success, msg = pcall(function()
-			return ModerationStore:UpdateAsync(key, function(old)
+			return WatchdogStore:UpdateAsync(key, function(old)
 				return data
 			end)
 		end)
 
 		if success then return success end
 	end
-
-	local error_msg = string.format(FAILED_DATA_WRITE, msg)
-	SendMsgToClient(ChatMod, error_msg)
-	warn(error_msg)
+	
+	local error_message = string.format(FAILED_DATA_UPDATE, msg)
+	SendMsgToClient(ChatMod, error_message)
+	warn(error_message)
 	return false
 end
 
@@ -133,8 +123,8 @@ end
 
 local function PublishMessage(topic : Subscription, message : any, ChatMod : Player?) : boolean
 	if not topic or type(topic) ~= "string" then
-		SendMsgToClient(ChatMod, INVALID_TOPIC)
-		warn(INVALID_TOPIC, "Sent:", topic) 
+		SendMsgToClient(ChatMod, ClientErrorMessages.INVALID_TOPIC)
+		warn(ClientErrorMessages.INVALID_TOPIC, "Sent:", topic) 
 		return false
 	end
 
@@ -161,40 +151,35 @@ local function GetId(user : User, ChatMod : Player?) : number?
 		return id
 	end
 	
-	if ChatMod then
-		GenerateMessage.fromResult(ChatMod, "Must send a valid Player or UserId!", "error")
-	end
-	warn("Must send a Player or UserId! Sent:", user) return
+	SendMsgToClient(ChatMod, ClientErrorMessages.INVALID_USER)
+	warn(ClientErrorMessages.INVALID_USER) return
 end
 
 local function IsModerator(moderator : User, ChatMod : Player?) : string?
 	if not Moderators then
 		SendMsgToClient(ChatMod, NO_MOD_LIST)
-		warn(NO_MOD_LIST)
-		return 
+		warn(NO_MOD_LIST) return 
 	end
 	if not moderator then
-		SendMsgToClient(ChatMod, INVALID_USER)
-		warn(INVALID_USER)
-		return
+		SendMsgToClient(ChatMod, ClientErrorMessages.INVALID_USER)
+		warn(ClientErrorMessages.INVALID_USER) return
 	end
 
 	local id = GetId(moderator) :: number
 	if not id then return end
 	
 	if not Moderators[id] then
-		local error_message = string.format(INVALID_MOD, tostring(id))
+		local error_message = string.format(ClientErrorMessages.INVALID_MOD, tostring(id))
 		SendMsgToClient(ChatMod, error_message)
-		warn(error_message)
-		return
+		warn(error_message) return
 	end
 
 	return Moderators[id]
 end
 
-local Moderation = {}
+local Watchdog = {}
 
-function Moderation.Verify(user : User, ChatMod : Player?) : boolean?
+function Watchdog.Verify(user : User, ChatMod : Player?) : boolean?
 	local id = GetId(user, ChatMod)
 	if not id then return end
 
@@ -207,7 +192,7 @@ function Moderation.Verify(user : User, ChatMod : Player?) : boolean?
 	if not latest_log or not latest_log.Banned then
 		return true
 	elseif latest_log.Duration > 0 and os.time() > latest_log.TimeOfBan + latest_log.Duration then
-		Moderation.Unban(id :: number, -1, "Ban duration finished")
+		Watchdog.Unban(id :: number, -1, "Ban duration finished")
 		return true
 	elseif typeof(user) == "Instance" and user:IsA("Player") then
 		user:Kick(string.format("You are banned from this experience. Reason: %s", latest_log.Reason))
@@ -216,7 +201,7 @@ function Moderation.Verify(user : User, ChatMod : Player?) : boolean?
 	return false
 end
 
-function Moderation.UpdateMods(ChatMod: Player?) : boolean
+function Watchdog.UpdateMods(ChatMod: Player?) : boolean
 	local new_mod_list = {}
 
 	for id, name in pairs(DefaultModerators) do -- fill in the default mods (server setup)
@@ -235,12 +220,12 @@ function Moderation.UpdateMods(ChatMod: Player?) : boolean
 	return true
 end
 
-function Moderation.GetMods(ChatMod : Player?) : List
-	if not Moderators then Moderation.UpdateMods(ChatMod) end
+function Watchdog.GetMods(ChatMod : Player?) : List
+	if not Moderators then Watchdog.UpdateMods(ChatMod) end
 	return Moderators
 end
 
-function Moderation.AddMod(new_moderator : User, ChatMod : Player?) : boolean?
+function Watchdog.AddMod(new_moderator : User, ChatMod : Player?) : boolean?
 	local id : number
 	local name : string
 
@@ -252,7 +237,7 @@ function Moderation.AddMod(new_moderator : User, ChatMod : Player?) : boolean?
 		if not id then return end
 		name = new_moderator.Name
 	else
-		return warn(INVALID_USER, "Sent:", new_moderator)
+		return warn(ClientErrorMessages.INVALID_USER, "Sent:", new_moderator)
 	end
 	
 	local fetch_success, added_mods = FetchData(MODS_DS_KEY, ChatMod)
@@ -273,11 +258,11 @@ function Moderation.AddMod(new_moderator : User, ChatMod : Player?) : boolean?
 	return true
 end
 
-function Moderation.RemoveMod(old_moderator : User, ChatMod : Player?) : boolean?
+function Watchdog.RemoveMod(old_moderator : User, ChatMod : Player?) : boolean?
 	local id = GetId(old_moderator, ChatMod) :: number
 	
 	if not Moderators[id] then
-		local error_message = string.format(INVALID_MOD, tostring(id))
+		local error_message = string.format(ClientErrorMessages.INVALID_MOD, tostring(id))
 		SendMsgToClient(ChatMod, error_message)
 		return warn(error_message)
 	end
@@ -300,24 +285,20 @@ function Moderation.RemoveMod(old_moderator : User, ChatMod : Player?) : boolean
 	return true
 end
 
-function Moderation.GetLogs(user : User, category : LogCategory?, number: number?, ChatMod : Player?) : (Data | {[string] : Data})?
+function Watchdog.GetLogs(user : User, category : LogCategory?, number: number?, ChatMod : Player?) : (Data | {[string] : Data})?
 	local id = GetId(user, ChatMod) :: number
 	if not id then return end
 	
 	local category_lowercase = string.lower(tostring(category))
 	local fetch_success, logs
 	
-	if category_lowercase == "notes" then
-		fetch_success, logs = FetchData(NOTES_DS_KEY .. id, ChatMod)
-	elseif category_lowercase == "kicks" then
-		fetch_success, logs = FetchData(KICKS_DS_KEY .. id, ChatMod)
-	elseif category_lowercase == "bans" then
-		fetch_success, logs = FetchData(BANS_DS_KEY .. id, ChatMod)
+	if category and LogCategories[category_lowercase] then
+		fetch_success, logs = FetchData(LogCategories[category_lowercase] :: string .. id, ChatMod)
 	elseif not category then
 		local n_success, notes = FetchData(NOTES_DS_KEY .. id, ChatMod)
 		local k_success, kicks = FetchData(KICKS_DS_KEY .. id, ChatMod)
 		local b_success, bans = FetchData(BANS_DS_KEY .. id, ChatMod)
-		
+
 		fetch_success = n_success and k_success and b_success
 		if fetch_success then
 			logs = {
@@ -334,8 +315,8 @@ function Moderation.GetLogs(user : User, category : LogCategory?, number: number
 	return nil
 end
 
-function Moderation.Note(user : User, moderator : User, note : string, ChatMod : Player?) : boolean?
-	if not note or (type(note) ~= "string" and type(note) ~= "number") then warn(INVALID_NOTE) return end
+function Watchdog.Note(user : User, moderator : User, note : string, ChatMod : Player?) : boolean?
+	if not note or (type(note) ~= "string" and type(note) ~= "number") then warn(ClientErrorMessages.INVALID_NOTE) return end
 
 	local mod = IsModerator(moderator, ChatMod)
 	if not mod then return end
@@ -352,6 +333,7 @@ function Moderation.Note(user : User, moderator : User, note : string, ChatMod :
 		Date = os.date(),
 		Note = note,
 		Moderator = mod :: string,
+		Server = ServerId,
 		Traceback = debug.traceback()
 	})
 
@@ -359,7 +341,7 @@ function Moderation.Note(user : User, moderator : User, note : string, ChatMod :
 	return true
 end
 
-function Moderation.Kick(user : User, moderator : User, reason : string?, format : string?, ChatMod : Player?) : boolean?
+function Watchdog.Kick(user : User, moderator : User, reason : string?, format : string?, ChatMod : Player?) : boolean?
 	local mod = IsModerator(moderator, ChatMod)
 	if not mod then return end
 
@@ -377,6 +359,7 @@ function Moderation.Kick(user : User, moderator : User, reason : string?, format
 		Date = os.date(),
 		Reason = string.format("%s (%s)", reason :: string, format :: string),
 		Moderator = mod :: string,
+		Server = ServerId,
 		Traceback = debug.traceback()
 	})
 
@@ -396,9 +379,9 @@ function Moderation.Kick(user : User, moderator : User, reason : string?, format
 	return true
 end
 
-function Moderation.Ban(user : User, moderator : User, duration : number, reason : string?, ChatMod : Player?) : boolean?
+function Watchdog.Ban(user : User, moderator : User, duration : number, reason : string?, ChatMod : Player?) : boolean?
 	-- duration : seconds
-	if not duration or type(duration) ~= "number" then return warn(INVALID_BAN_DURATION, duration) end
+	if not duration or type(duration) ~= "number" then return warn(ClientErrorMessages.INVALID_BAN_DURATION, duration) end
 
 	local mod = IsModerator(moderator, ChatMod)
 	if not mod then return end
@@ -413,9 +396,8 @@ function Moderation.Ban(user : User, moderator : User, duration : number, reason
 	if not fetch_success then return end
 	
 	if ban_logs[1] and ban_logs[1].Banned then
-		SendMsgToClient(ChatMod, INVALID_BAN_TARGET)
-		warn(INVALID_BAN_TARGET)
-		return
+		SendMsgToClient(ChatMod, ClientErrorMessages.INVALID_BAN_TARGET)
+		warn(ClientErrorMessages.INVALID_BAN_TARGET) return
 	end
 	
 	table.insert(ban_logs, 1, {
@@ -423,18 +405,19 @@ function Moderation.Ban(user : User, moderator : User, duration : number, reason
 		Date = os.date(),
 		Reason = reason,
 		Moderator = mod :: string,
+		Server = ServerId,
 		Traceback = debug.traceback(),
 		TimeOfBan = os.time(),
 		Duration = math.round(duration),
 	})
 
 	WriteToData(key, ban_logs)
-	Moderation.Kick(id :: number, -1, reason, nil, ChatMod)
+	Watchdog.Kick(id :: number, -1, reason, nil, ChatMod)
 	return true
 end
 
-function Moderation.Unban(id : number, moderator : User, reason : string?, ChatMod : Player?) : boolean?
-	if type(id) ~= "number" then return warn(INVALID_USERID) end
+function Watchdog.Unban(id : number, moderator : User, reason : string?, ChatMod : Player?) : boolean?
+	if type(id) ~= "number" then return warn(ClientErrorMessages.INVALID_USERID) end
 
 	local mod = IsModerator(moderator, ChatMod)
 	if not mod then return end
@@ -446,9 +429,8 @@ function Moderation.Unban(id : number, moderator : User, reason : string?, ChatM
 	if not fetch_success then return end
 	
 	if ban_logs[1] and not ban_logs[1].Banned then
-		SendMsgToClient(ChatMod, INVALID_UNBAN_TARGET)
-		warn(INVALID_UNBAN_TARGET)
-		return
+		SendMsgToClient(ChatMod, ClientErrorMessages.INVALID_UNBAN_TARGET)
+		warn(ClientErrorMessages.INVALID_UNBAN_TARGET) return
 	end
 	
 	table.insert(ban_logs, 1, {
@@ -456,6 +438,7 @@ function Moderation.Unban(id : number, moderator : User, reason : string?, ChatM
 		Date = os.date(),
 		Reason = reason,
 		Moderator = mod :: string,
+		Server = ServerId,
 		Traceback = debug.traceback()
 	})
 
@@ -463,16 +446,16 @@ function Moderation.Unban(id : number, moderator : User, reason : string?, ChatM
 	return true
 end
 
-function Moderation.Cmds() : List
+function Watchdog.Cmds() : List
 	local cmds = {}
-	for name in pairs(Moderation) do
+	for name in pairs(Watchdog) do
 		table.insert(cmds, name)
 	end
 	return cmds
 end
 
 -- Required
-Moderation.UpdateMods()
+Watchdog.UpdateMods()
 SubscribeToMessage("UpdateMods", function(message : Message)
 	if not message or type(message.Data) ~= "table" then warn("No valid update has been received:", message) return end
 	if message.Data.Server == ServerId then return end
@@ -493,7 +476,7 @@ SubscribeToMessage("KickPlayer", function(message : Message)
 	local reason = message.Data.Reason or DEFAULT_KICK_REASON
 	local format = message.Data.Format
 	
-	if type(id) ~= "number" then warn(INVALID_USERID, "Sent:", id) return end
+	if type(id) ~= "number" then warn(ClientErrorMessages.INVALID_USERID, "Sent:", id) return end
 	if type(reason) ~= "string" then warn("Please send a valid reason! Sent:", reason) return end
 	if format and type(format) ~= "string" then warn("Please send a valid format! Sent:", format) return end
 	
@@ -507,4 +490,4 @@ SubscribeToMessage("KickPlayer", function(message : Message)
 end)
 --
 
-return Moderation
+return Watchdog
