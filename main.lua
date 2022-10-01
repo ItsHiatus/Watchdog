@@ -21,6 +21,7 @@ end
 
 Players.PlayerAdded:Connect(OnPlayerAdded)
 Players.PlayerRemoving:Connect(OnPlayerRemoving)
+
 for _, player in ipairs(Players:GetPlayers()) do
 	OnPlayerAdded(player)
 end
