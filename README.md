@@ -2,7 +2,7 @@
 *Add security to your code with ease*
 
 This module is supposed to be used to note down problems with server code e.g. when an event is fired and things don't add up.
-You can note the problem down easily and kick/ban if u have to, so it's nothing like hd admin or any other admin thing.
+You can note the problem down easily and kick/ban if you have to, so it's nothing like hd admin or anything similar.
 
 The structure is supposed to look like this:
 
