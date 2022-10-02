@@ -124,7 +124,7 @@ return {
 		
 		ClientCmdEvent:FireClient(player, {
 			Text = FilterMessage(msg, player),
-			Color = ChatReplyColors.normal
+			Color = ChatReplyColors[(msg == FailedResultMessage and "error" or "normal")] :: Color3
 		}) 
 	end,
 	
