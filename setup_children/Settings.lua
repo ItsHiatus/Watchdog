@@ -79,6 +79,20 @@ return {
 		INVALID_SINGLE_TARGET = "More than one target found with name %s!",
 	},
 	
+	ChatCmds = {
+		{"cmds", "void"},
+		{"verify", "user"},
+		{"updatemods", "void"},
+		{"getmods", "void"},
+		{"addmod", "mod"},
+		{"removemod", "mod"},
+		{"getlogs", "category", "log_number"},
+		{"note", "user", "note"},
+		{"kick", "user", "reason", "format"},
+		{"ban", "user", "reason"},
+		{"unban", "user", "reason"}
+	},
+	
 	TargetingCmds = { -- add function names that require a target as 1st arg
 		verify = true, -- put function name in lower case
 		addmod = true,
