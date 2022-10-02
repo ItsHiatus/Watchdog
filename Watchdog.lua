@@ -224,7 +224,7 @@ function Watchdog.Verify(user : User, ChatMod : Player?) : boolean?
 		Watchdog.Unban(id :: number, -1, "Ban duration finished")
 		return true
 	elseif typeof(user) == "Instance" and user:IsA("Player") then
-		user:Kick(string.format("You are banned from this experience. Reason: %s", latest_log.Reason))
+		user:Kick(string.format("You are banned from this experience. Reason: %s. \n(%s)", latest_log.Reason, GetRemainingBanDuration(latest_log.TimeOfBan + latest_log.Duration - os.time())))
 	end
 
 	return false
@@ -450,8 +450,6 @@ function Watchdog.Unban(id : number, moderator : User, reason : string?, ChatMod
 	local fetch_success, ban_logs = FetchData(key, ChatMod)
 	if not fetch_success then return end
 	
-	print(ban_logs)
-	
 	if ban_logs[1] and not ban_logs[1].Banned then
 		SendMsgToClient(ChatMod, ClientErrorMessages.INVALID_UNBAN_TARGET)
 		warn(ClientErrorMessages.INVALID_UNBAN_TARGET) return
@@ -471,12 +469,8 @@ function Watchdog.Unban(id : number, moderator : User, reason : string?, ChatMod
 	return WriteToData(BANS_DS_KEY .. tostring(id), new_log, ChatMod)
 end
 
-function Watchdog.Cmds() : List
-	local cmds = {}
-	for name in pairs(Watchdog) do
-		table.insert(cmds, name)
-	end
-	return cmds
+function Watchdog.Cmds() : {List}
+	return Settings.ChatCmds
 end
 
 -- Required
