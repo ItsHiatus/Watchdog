@@ -6,4 +6,4 @@ You can note the problem down easily and kick/ban if u have to, so it's nothing 
 
 The structure is supposed to look like this:
 
-![image](https://user-images.githubusercontent.com/87611306/193423701-e3fcc106-045f-42a9-9fdf-6437b53e42ae.png)
+![image](https://user-images.githubusercontent.com/87611306/193459510-aec52dc0-404e-4542-a3b2-871d2e6c1226.png)
