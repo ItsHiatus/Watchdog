@@ -10,7 +10,7 @@ local LOGGING_CMDS = Settings.LoggingCmds -- add function names here that requir
 local CLIENT_ERROR_MSGS = Settings.ClientErrorMessages
 --
 
-local Watchdog = require(script.Parent.Watchdog)
+local Watchdog = require(script.Parent.Parent.Watchdog)
 local GenerateMessage = require(script.GenerateMessage)
 local ParseArgs = require(script.ParseArgs)
 
