@@ -66,13 +66,12 @@ return {
 		INVALID_MOD_TARGET = "%s is already a mod!",
 		INVALID_UNMOD_TARGET = "%s is a default mod! They cannot be removed with this function.",
 		INVALID_NOTE = "Please provide a valid note!",
-		INVALID_BAN_DURATION = "Please provide a valid duration!",
-		INVALID_BAN_TARGET = "Player is already banned!",
+		INVALID_BAN_DURATION = "Please provide a valid duration (seconds)!",
 		INVALID_UNBAN_TARGET = "Player is already unbanned!",
 		INVALID_LOG_CATEGORY = "Please provide a valid log category! (notes/kicks/bans)",
 		INVALID_LOG_NUMBER = "Please provide a valid log number!",
 		INVALID_REASON = "Please provide a valid reason!",
-		INVALID_DURATION = "Please provide a valid ban duration (-1 for indefinite bans)",
+		INVALID_DURATION = "Please provide a valid ban duration. Duration is in seconds (-1 for indefinite bans)",
 		
 		INVALID_CMD = "Could not find command %s",
 		INVALID_TARGET = "Please provide a valid target (UserId or Name of a player in the server)!",
@@ -89,7 +88,7 @@ return {
 		{"getlogs", "category", "log_number"},
 		{"note", "user", "note"},
 		{"kick", "user", "reason", "format"},
-		{"ban", "user", "reason"},
+		{"ban", "user", "duration", "reason"},
 		{"unban", "user", "reason"}
 	},
 	
