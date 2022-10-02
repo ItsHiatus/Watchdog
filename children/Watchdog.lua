@@ -269,6 +269,12 @@ function Watchdog.AddMod(new_moderator : User, ChatMod : Player?) : boolean?
 		return warn(ClientErrorMessages.INVALID_USER, "Sent:", new_moderator)
 	end
 	
+	if Moderators[id] then
+		local error_message = string.format(ClientErrorMessages.INVALID_MOD_TARGET, tostring(id))
+		SendMsgToClient(ChatMod, error_message)
+		return warn(error_message)
+	end
+	
 	local mods_to_add = {[tostring(id)] = name} -- store key as string to avoid datastore mixed keys rule (unordered number keys)
 	Moderators[id] = name
 	
@@ -287,8 +293,9 @@ end
 function Watchdog.RemoveMod(old_moderator : User, ChatMod : Player?) : boolean?
 	local id = GetId(old_moderator, ChatMod) :: number
 	
-	if not Moderators[id] then
-		local error_message = string.format(ClientErrorMessages.INVALID_MOD, tostring(id))
+	if not Moderators[id] or DefaultModerators[id] then
+		local msg = (DefaultModerators[id]) and ClientErrorMessages.INVALID_UNMOD_TARGET or ClientErrorMessages.INVALID_MOD
+		local error_message = string.format(msg, tostring(id))
 		SendMsgToClient(ChatMod, error_message)
 		return warn(error_message)
 	end
