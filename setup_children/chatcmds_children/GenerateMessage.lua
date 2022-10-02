@@ -40,15 +40,6 @@ local function GetPaddedStringFromDict(dict : Table|DataDict)
 	return padded_string
 end
 
-local function GetStringFromArray(array : {any}) : string
-	local str = "\n"
-	for _, value in ipairs(array) do
-		if type(value) ~= "string" and type(value) ~= "number" then continue end
-		str = str .. string.format("%s\n", tostring(value))
-	end
-	return str
-end
-
 local function VerifyResult(cmd : string, result : any) : boolean
 	if TableResultTypes[cmd] then
 		if type(result) == "table" then return true end
@@ -59,8 +50,28 @@ local function VerifyResult(cmd : string, result : any) : boolean
 end
 
 local CommandResults = {
-	cmds = function(result : {string})
-		return string.format(Reply, GetStringFromArray(result))
+	cmds = function(result : {{string}})
+		local cmds = {}
+		local args = {}
+		local max = 0
+		
+		for index, cmd in result do
+			local arg_list = ""
+			for i, arg in cmd do
+				if i == 1 then continue end
+				arg_list = string.format("%s%s ", arg_list, arg)
+			end
+			cmds[index] = cmd[1]
+			args[index] = arg_list
+			max = math.max(#cmd[1], max)
+		end
+		
+		local padded_string = "\n"
+		for index, cmd in cmds do
+			padded_string = padded_string .. string.format("%s : %s\n", string.rep(" ", max - #cmd) .. cmd, args[index])
+		end
+		
+		return string.format(Reply, padded_string)
 	end,
 	
 	verify = function(result : boolean) : string
