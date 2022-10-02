@@ -12,7 +12,7 @@ return {
 	-- Watchdog Settings
 	DefaultMods = {
 		[-1] = "Server", -- id -1 is reserved for game
-		[12545525] = "Im_Hiatus",
+		[12545525] = "Im_Hiatus", -- put your id and name like this
 	},
 	
 	LogCategories = {
@@ -63,6 +63,8 @@ return {
 		INVALID_USER = "Please provide a valid Player or UserId!",
 		INVALID_USERID = "Please provide a valid UserId!",
 		INVALID_MOD = "%s does not have mod perms!",
+		INVALID_MOD_TARGET = "%s is already a mod!",
+		INVALID_UNMOD_TARGET = "%s is a default mod! They cannot be removed with this function.",
 		INVALID_NOTE = "Please provide a valid note!",
 		INVALID_BAN_DURATION = "Please provide a valid duration!",
 		INVALID_BAN_TARGET = "Player is already banned!",
