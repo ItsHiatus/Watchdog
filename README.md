@@ -25,6 +25,7 @@ The structure is supposed to look like this:
 			
 - ChatMod arg is for ChatCmds only. It is used to update the client on the result of their cmd usage. You do not need to pass it when using the function (it is done for you in the ChatCmd setup).
 
+- Client script (LocalScript) is cloned to the moderators' PlayerGui when their Character spawns, so you don't have to move it anywhere.
 ### API:
 
 ```
