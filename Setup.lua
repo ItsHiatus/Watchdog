@@ -1,4 +1,7 @@
-local Watchdog = require(script.Watchdog)
+--!strict
+-- Setup for Watchdog. Enables ChatCmds.
+
+local Watchdog = require(script.Parent.Watchdog)
 local ChatCmds = require(script.ChatCmds)
 
 local Players = game:GetService("Players")
