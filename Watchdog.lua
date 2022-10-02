@@ -1,6 +1,6 @@
 --!strict
 -- Settings
-local Settings = require(script.Parent.Settings)
+local Settings = require(script.Parent.Watchdog_Setup.Settings)
 
 local DefaultModerators = Settings.DefaultMods
 local KickMessageFormats = Settings.KickMessageFormats
@@ -33,7 +33,7 @@ type Message = {Data : any, Sent : number}
 type User = Settings.User
 type LogCategory = Settings.LogCategory
 
-local GenerateMessage = require(script.Parent.ChatCmds.GenerateMessage)
+local GenerateMessage = require(script.Parent.Watchdog_Setup.ChatCmds.GenerateMessage)
 
 local MessagingService = game:GetService("MessagingService")
 local Players = game:GetService("Players")
