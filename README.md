@@ -1,4 +1,4 @@
-# Watchdog
+# Watchdog | Add security to your code with ease
 *Add security to your code with ease*
 
 This module is supposed to be used to note down problems with server code e.g. when an event is fired and things don't add up.
