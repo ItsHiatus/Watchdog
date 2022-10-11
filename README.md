@@ -6,7 +6,7 @@ You can note the problem down easily and kick/ban if you have to, so it's nothin
 
 The structure is supposed to look like this:
 
-![image](https://user-images.githubusercontent.com/87611306/193459510-aec52dc0-404e-4542-a3b2-871d2e6c1226.png)
+![image](https://user-images.githubusercontent.com/87611306/195112894-9a08e125-1d6a-438f-b4d7-800e8dd80d1e.png)
 
 ### Important Notes:
 - You must call `Watchdog.Verify(player)` on every player that joins. This ensures that banned players are kicked from the game, and players whose ban duration is up, are unbanned. However, this is done for you in the Server Setup script.
@@ -25,7 +25,7 @@ The structure is supposed to look like this:
 			
 - ChatMod arg is for ChatCmds only. It is used to update the client on the result of their cmd usage. You do not need to pass it when using the function (it is done for you in the ChatCmd setup).
 
-- Client script (handles chat cmd replied) is cloned to the moderator's PlayerGui when their Character spawns, so you don't have to move it yourself.
+- Client script (handles chat cmd replies) is cloned to the moderator's PlayerGui when their Character spawns, so you don't have to move it yourself.
 ### API:
 
 ```
@@ -70,6 +70,10 @@ Watchdog.Note(user : User, moderator : User, note : string) : boolean
 ```
 
 ```lua
+Watchdog.RemoveNote(user : User, note_id : number) : boolean
+```
+
+```lua
 Watchdog.Kick(user : User, moderator : User, reason : string?, format : Format?) : boolean
 --[[	'reason' will default to "None" when nil (changeable)
 	'format' will reformat the reason to display a better kick message to the player.
@@ -91,6 +95,20 @@ Watchdog.Ban(user : User, moderator : User, duration : number, reason : string?)
 ```lua
 Watchdog.Unban(user : User, moderator : User, reason : string?) : boolean
 --	'reason' will default to "None" when nil (changeable)
+```
+
+```lua
+Watchdog.LocalNote(user : User, moderator : User, note : string) : boolean
+--[[
+	Creates a note on the server. It will not be stored on any datastore and will disappear
+	when the server closes.
+	To see LocalNotes, use Watchdog.GetLocalNotes()
+]]
+```
+
+```lua
+Watchdog.GetLocalNotes(user : User, note_id : number)
+--	Returns the note with the specified id stored on the server (or all if not specified).
 ```
 
 ```lua
