@@ -76,7 +76,7 @@ local function FetchData(key : string, ChatMod : Player?) : (boolean, Data)
 	return false, {}
 end
 
-local function WriteToData(key : string, data_to_add : Data, ChatMod: Player?) : boolean
+local function WriteToData(key : string, data_to_write : Data, ChatMod: Player?) : boolean
 	if not key then
 		SendMsgToClient(ChatMod, ClientErrorMessages.INVALID_KEY)
 		warn(ClientErrorMessages.INVALID_KEY) 
@@ -90,9 +90,13 @@ local function WriteToData(key : string, data_to_add : Data, ChatMod: Player?) :
 			return WatchdogStore:UpdateAsync(key, function(old)
 				old = old or {}
 				
-				for key, value in pairs(data_to_add) do
+				for key, value in pairs(data_to_write) do
 					if type(key) == "number" then
-						table.insert(old, key, value)
+						if value ~= false then
+							table.insert(old, key, value)
+						else
+							table.remove(old, key)
+						end
 					else
 						old[key] = (value ~= false) and value or nil -- set values to false to remove them from data
 					end
@@ -188,6 +192,8 @@ local function IsModerator(moderator : User, ChatMod : Player?) : string?
 end
 
 local function GetRemainingBanDuration(duration : number) : string
+	if duration < 0 then return "indefinite ban" end
+
 	local remaining = duration
 	local result = ""
 	
@@ -206,7 +212,23 @@ local function GetRemainingBanDuration(duration : number) : string
 	return result
 end
 
+local function GenerateNote(mod : string, note : string, ChatMod : Player?) : Settings.Note?
+	if not note or (type(note) ~= "string" and type(note) ~= "number") then
+		SendMsgToClient(ChatMod, ClientErrorMessages.INVALID_NOTE)
+		return warn(ClientErrorMessages.INVALID_NOTE) 
+	end
+
+	return {
+		Date = os.date(),
+		Note = note,
+		Moderator = mod,
+		Server = ServerId,
+		Traceback = debug.traceback()
+	}
+end
+
 local Watchdog = {}
+Watchdog.LocalNotes = {}
 
 function Watchdog.Verify(user : User, ChatMod : Player?) : boolean?
 	local id = GetId(user, ChatMod)
@@ -316,7 +338,7 @@ function Watchdog.RemoveMod(old_moderator : User, ChatMod : Player?) : boolean?
 	return true
 end
 
-function Watchdog.GetLogs(user : User, category : LogCategory?, number: number?, ChatMod : Player?) : (Data | {[string] : Data})?
+function Watchdog.GetLogs(user : User, category : LogCategory?, log_id: number?, ChatMod : Player?) : (Data | DataDict)?
 	local id = GetId(user, ChatMod) :: number
 	if not id then return end
 	
@@ -341,31 +363,22 @@ function Watchdog.GetLogs(user : User, category : LogCategory?, number: number?,
 	end
 	
 	if fetch_success and logs then
-		return if number then logs[number] else logs
+		return if log_id then logs[log_id] else logs
 	end
 	return nil
 end
 
 function Watchdog.Note(user : User, moderator : User, note : string, ChatMod : Player?) : boolean?
-	if not note or (type(note) ~= "string" and type(note) ~= "number") then warn(ClientErrorMessages.INVALID_NOTE) return end
-
-	local mod = IsModerator(moderator, ChatMod)
+	local mod = IsModerator(moderator, ChatMod) :: string
 	if not mod then return end
-
-	local id = GetId(user, ChatMod) :: number
-	if not id then return end
 	
-	local new_log = {
-		{
-			Date = os.date(),
-			Note = note,
-			Moderator = mod :: string,
-			Server = ServerId,
-			Traceback = debug.traceback()
-		}
-	}
+	local id = GetId(user, ChatMod)
+	if not id then return end
 
-	return WriteToData(NOTES_DS_KEY .. tostring(id), new_log, ChatMod)
+	local new_note = GenerateNote(mod, note, ChatMod)
+	if not new_note then return end
+
+	return WriteToData(NOTES_DS_KEY .. tostring(id), {new_note}, ChatMod)
 end
 
 function Watchdog.Kick(user : User, moderator : User, reason : string?, format : string?, ChatMod : Player?) : boolean?
@@ -467,6 +480,51 @@ function Watchdog.Unban(id : number, moderator : User, reason : string?, ChatMod
 	}
 
 	return WriteToData(BANS_DS_KEY .. tostring(id), new_log, ChatMod)
+end
+
+function Watchdog.RemoveNote(user : User, note_id : number, ChatMod : Player?) : boolean?
+	local id = GetId(user, ChatMod) :: number
+
+	if not note_id or type(note_id) ~= "number" then
+		SendMsgToClient(ChatMod, ClientErrorMessages.INVALID_NOTE_NUMBER)
+		return warn(ClientErrorMessages.INVALID_NOTE_NUMBER)
+	end
+
+	local notes_to_remove = {[note_id] = false}
+
+	local update_success = WriteToData(NOTES_DS_KEY .. tostring(id), notes_to_remove, ChatMod)
+	return update_success
+end
+
+function Watchdog.LocalNote(user : User, moderator : User, note : string, ChatMod : Player?) : boolean?
+	local mod = IsModerator(moderator, ChatMod) :: string
+	if not mod then return end
+
+	local id = GetId(user, ChatMod)
+	if not id then return end
+
+	local new_note = GenerateNote(mod, note, ChatMod)
+	if not new_note then return end
+
+	if not Watchdog.LocalNotes[id] then
+		Watchdog.LocalNotes[id] = {}
+	end
+
+	table.insert(Watchdog.LocalNotes[id], 1, new_note)
+	return true
+end
+
+function Watchdog.GetLocalNotes(user : User, note_id : number?, ChatMod : Player?) : Data?
+	local id = GetId(user, ChatMod) :: number
+	if not id then return end
+
+	local local_user_notes = Watchdog.LocalNotes[id]
+	if not local_user_notes then
+		SendMsgToClient(ChatMod, "User has no local notes")
+		return warn("User has no local notes")
+	end
+
+	return if note_id then local_user_notes[note_id] else local_user_notes
 end
 
 function Watchdog.Cmds() : {List}
