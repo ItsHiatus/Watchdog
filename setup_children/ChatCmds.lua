@@ -7,12 +7,14 @@ local PREFIX = Settings.Prefix
 local TARGETING_CMDS = Settings.TargetingCmds -- add function names that require a target as 1st arg
 local LOGGING_CMDS = Settings.LoggingCmds -- add function names here that require the moderator as 2nd arg (e.g. for logging purposes)
 
+local CHATCMD_ACCESS_MSG = string.format("You have access to Watchdog's ChatCmds! Type %scmds for the list of commands that you can use.", PREFIX)
 local CLIENT_ERROR_MSGS = Settings.ClientErrorMessages
 --
 
 local Watchdog = require(script.Parent.Parent.Watchdog)
 local GenerateMessage = require(script.GenerateMessage)
 local ParseArgs = require(script.ParseArgs)
+local VerifyArgs = require(script.VerifyArgs)
 
 local ClientCmdScript = script.Watchdog_Client
 local Players = game:GetService("Players")
@@ -68,36 +70,8 @@ local function VerifyCmdArgs(player : Player, cmd : string, args : {any}) : bool
 		table.insert(args, 2, player.UserId)
 	end
 	
-	if cmd == "getlogs" then -- must specify category and log number with chat cmd, otherwise floods chat
-		if not args[2] or not table.find(Settings.LogCategories, args[2]) then
-			GenerateMessage.fromResult(player, CLIENT_ERROR_MSGS.INVALID_LOG_CATEGORY, "error") return
-		elseif not args[3] or type(args[3]) ~= "number" then
-			GenerateMessage.fromResult(player, CLIENT_ERROR_MSGS.INVALID_LOG_NUMBER, "error") return
-		end
-		
-	elseif cmd == "note" then -- must provide a valid note
-		if not args[3] then
-			GenerateMessage.fromResult(player, CLIENT_ERROR_MSGS.INVALID_NOTE, "error") return
-		end
-		
-	elseif cmd == "kick" then -- must provide reason and format
-		if not args[3] then
-			GenerateMessage.fromResult(player, CLIENT_ERROR_MSGS.INVALID_REASON, "error") return
-		elseif not args[4] then
-			table.insert(args, "none")
-		end
-		
-	elseif cmd == "ban" then -- must provide duration and reason
-		if not args[3] or type(args[3]) ~= "number" then
-			GenerateMessage.fromResult(player, CLIENT_ERROR_MSGS.INVALID_DURATION, "error") return
-		elseif not args[4] then
-			GenerateMessage.fromResult(player, CLIENT_ERROR_MSGS.INVALID_REASON, "error") return
-		end
-		
-	elseif cmd == "unban" then
-		if not args[3] then
-			GenerateMessage.fromResult(player, CLIENT_ERROR_MSGS.INVALID_REASON, "error") return
-		end
+	if VerifyArgs[cmd] then -- add commands to this table to assert the correct args are being sent
+		if not VerifyArgs[cmd](player, args) then return end
 	end
 	
 	table.insert(args, player) -- ChatMod at end of args
@@ -153,6 +127,8 @@ function ChatCmds.EnableChatCmds(player : Player)
 		GivePlayerCmdScript(player)
 	end)
 	GivePlayerCmdScript(player)
+	
+	GenerateMessage.fromResult(player, CHATCMD_ACCESS_MSG, "normal")
 	
 	player.Chatted:Connect(function(message)
 		OnPlayerChatted(player, message)
