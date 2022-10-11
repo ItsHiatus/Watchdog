@@ -8,6 +8,26 @@ export type KickMsgFormat = "error" | "sus" | "none"
 export type Subscription = "UpdateMods" | "KickPlayer"
 export type MessageType = "normal" | "error"
 
+type Date = string | {
+	day : number,
+	hour : number,
+	isdst : boolean,
+	min : number,
+	month : number,
+	sec : number,
+	wday : number,
+	yday : number,
+	year : number
+}
+
+export type Note = {
+	Date : Date,
+	Note : string,
+	Moderator : string,
+	Server : string,
+	Traceback :string,
+}
+
 return {
 	-- Watchdog Settings
 	DefaultMods = {
@@ -70,6 +90,7 @@ return {
 		INVALID_UNBAN_TARGET = "Player is already unbanned!",
 		INVALID_LOG_CATEGORY = "Please provide a valid log category! (notes/kicks/bans)",
 		INVALID_LOG_NUMBER = "Please provide a valid log number!",
+		INVALID_NOTE_NUMBER = "Please provide a valid note id!",
 		INVALID_REASON = "Please provide a valid reason!",
 		INVALID_DURATION = "Please provide a valid ban duration. Duration is in seconds (-1 for indefinite bans)",
 		
@@ -87,9 +108,12 @@ return {
 		{"removemod", "mod"},
 		{"getlogs", "category", "log_number"},
 		{"note", "user", "note"},
+		{"removenote", "user", "note_number"},
 		{"kick", "user", "reason", "format"},
 		{"ban", "user", "duration", "reason"},
-		{"unban", "user", "reason"}
+		{"unban", "user", "reason"},
+		{"localnote", "user", "note"},
+		{"getlocalnotes", "user", "note_number"},
 	},
 	
 	TargetingCmds = { -- add function names that require a target as 1st arg
@@ -97,7 +121,10 @@ return {
 		addmod = true,
 		removemod = true,
 		getlogs = true,
+		getlocalnotes = true,
 		note = true,
+		removenote = true,
+		localnote = true,
 		kick = true,
 		ban = true,
 		unban = true
@@ -105,6 +132,7 @@ return {
 	
 	LoggingCmds = { -- add function names here that require the moderator as 2nd arg (e.g. for logging purposes)
 		note = true, -- put function name in lower case
+		localnote = true,
 		kick = true,
 		ban = true,
 		unban = true
@@ -113,7 +141,8 @@ return {
 	TableResultTypes = { -- add function names that return a table
 		cmds = true,      -- put function name in lower case
 		getmods = true,
-		getlogs = true
+		getlogs = true,
+		getlocalnotes = true,
 	},
 	
 	BooleanResultTypes = { -- add function names that return a boolean
@@ -122,8 +151,10 @@ return {
 		addmod = true,
 		removemod = true,
 		note = true,
+		localnote = true,
+		removenote = true,
 		kick = true,
 		ban = true,
 		unban = true
-	}
+	},
 }
