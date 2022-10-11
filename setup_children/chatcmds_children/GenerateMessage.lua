@@ -7,7 +7,7 @@ local Settings = require(script.Parent.Parent.Settings)
 local ChatName = Settings.ChatName
 local ChatReplyColors = Settings.ChatReplyColors
 
-local FailedResultMessage = string.format("[%s]: Proper result not found", ChatName)
+local FailedResultMessage = string.format("[%s]: It seems like there was an issue with this request.", ChatName)
 local Reply = string.format("[%s]: %%s", ChatName)
 
 local TableResultTypes = Settings.TableResultTypes -- add function names that return a table
@@ -98,8 +98,20 @@ local CommandResults = {
 		return string.format(Reply, GetPaddedStringFromDict(result))
 	end,
 	
+	getlocalnotes = function(result : Table) : string
+		return string.format(Reply, GetPaddedStringFromDict(result))
+	end,
+	
 	note = function(result : boolean) : string
 		return string.format(Reply, (result) and "Successfully noted player." or "Failed to note player.")
+	end,
+	
+	removenote = function(result : boolean) : string
+		return string.format(Reply, (result) and "Successfully removed note."or "Failed to remove note.")
+	end,
+	
+	localnote = function(result : boolean) : string
+		return string.format(Reply, (result) and "Successfully noted player." or "Failed to not player.")
 	end,
 	
 	kick = function(result : boolean) : string
@@ -131,11 +143,23 @@ end
 
 return {
 	new = function(player : Player, cmd : string, result : any)
-		local msg = VerifyResult(cmd, result) and CommandResults[cmd](result) or FailedResultMessage
+		local msg : string
+		local msg_type : string
+		
+		if not VerifyResult(cmd, result) then
+			msg = "Could not verify result for this cmd! Please make sure to specify what type of result this cmd returns in Watchdog Settings."
+			msg_type = "error"
+		elseif not CommandResults[cmd] then
+			msg = "Could not format this result into a message! Please make sure to add a result formatting method in Watchdog GenerateMessage."
+			msg_type = "error"
+		else
+			msg = CommandResults[cmd](result) or FailedResultMessage
+			msg_type = (msg == FailedResultMessage) and "error" or "normal"
+		end
 		
 		ClientCmdEvent:FireClient(player, {
 			Text = FilterMessage(msg, player),
-			Color = ChatReplyColors[(msg == FailedResultMessage and "error" or "normal")] :: Color3
+			Color = ChatReplyColors[msg_type] :: Color3
 		}) 
 	end,
 	
