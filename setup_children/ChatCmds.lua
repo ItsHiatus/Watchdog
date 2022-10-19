@@ -123,7 +123,7 @@ function ChatCmds.EnableChatCmds(player : Player)
 		warn(string.format("This player cannot receive chat cmds. They are not a moderator. (Sent %s)", player.Name)) return
 	end
 	
-	player.CharacterAdded:Connect(function()
+	player.CharacterAppearanceLoaded:Connect(function()
 		GivePlayerCmdScript(player)
 	end)
 	GivePlayerCmdScript(player)
