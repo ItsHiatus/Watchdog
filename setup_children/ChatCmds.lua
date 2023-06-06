@@ -16,7 +16,7 @@ local GenerateMessage = require(script.GenerateMessage)
 local ParseArgs = require(script.ParseArgs)
 local VerifyArgs = require(script.VerifyArgs)
 
-local ClientCmdScript = script.Watchdog_Client
+local ClientCmdScript = script.WatchdogClient
 local Players = game:GetService("Players")
 
 local Commands = {}
@@ -31,12 +31,14 @@ end
 local function GivePlayerCmdScript(player : Player)
 	local player_gui = player:WaitForChild("PlayerGui") :: PlayerGui
 	if player_gui:FindFirstChild(ClientCmdScript.Name) then return end
-	
+
 	local new_script = ClientCmdScript:Clone()
 	new_script.Parent = player_gui
 	
-	new_script.Destroying:Connect(function()
-		GivePlayerCmdScript(player)
+	new_script:GetPropertyChangedSignal("Parent"):Connect(function()
+		if new_script.Parent == nil then
+			GivePlayerCmdScript(player)
+		end
 	end)
 end
 
@@ -90,8 +92,8 @@ local function OnPlayerChatted(player : Player, message : string)
 	if not string.match(message, Prefix_Anchored) then return end
 
 	local cmd, rest_of_msg = string.match(string.lower(message), "(%a+)%s*(.*)", #PREFIX + 1)
-
-	if not Commands[cmd] then
+	
+	if not cmd or not Commands[cmd] then
 		GenerateMessage.fromResult(player, string.format(CLIENT_ERROR_MSGS.INVALID_CMD, tostring(cmd)), "error") return
 	end
 
@@ -99,6 +101,7 @@ local function OnPlayerChatted(player : Player, message : string)
 	for i, arg in ipairs(args) do
 		args[i] = tonumber(arg) or arg
 	end
+	
 
 	local target = args[1]
 
@@ -129,6 +132,7 @@ function ChatCmds.EnableChatCmds(player : Player)
 		warn(string.format("This player cannot receive chat cmds. They are not a moderator. (Sent %s)", player.Name)) return
 	end
 
+	GivePlayerCmdScript(player)
 	GenerateMessage.fromResult(player, CHATCMD_ACCESS_MSG, "normal")
 
 	player.Chatted:Connect(function(message)
