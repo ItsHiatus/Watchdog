@@ -6,7 +6,7 @@ You can note the problem down easily and kick/ban if you have to, so it's nothin
 
 The structure is supposed to look like this:
 
-![image](https://user-images.githubusercontent.com/87611306/195112894-9a08e125-1d6a-438f-b4d7-800e8dd80d1e.png)
+![image](https://github.com/ItsHiatus/Watchdog/assets/87611306/55d7da93-b9c7-40c6-a17e-d904f8e39930)
 
 ### Important Notes:
 - You must call `Watchdog.Verify(player)` on every player that joins. This ensures that banned players are kicked from the game, and players whose ban duration is up, are unbanned. However, this is done for you in the Server Setup script.
