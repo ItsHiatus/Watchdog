@@ -4,9 +4,11 @@
 This module is supposed to be used to note down problems with server code e.g. when an event is fired and things don't add up.
 You can note the problem down easily and kick/ban if you have to, so it's nothing like HD admin or anything similar.
 
-The structure is supposed to look like this (you can get the model which has it all set up for you):
+The structure is supposed to look like this:
 
 ![image](https://github.com/ItsHiatus/Watchdog/assets/87611306/55d7da93-b9c7-40c6-a17e-d904f8e39930)
+
+(you can get the model which has it all set up for you: https://www.roblox.com/library/11089010539/Watchdog)
 
 ### Important Notes:
 - You must call `Watchdog.Verify(player)` on every player that joins. This ensures that banned players are kicked from the game, and players whose ban duration is up, are unbanned. However, this is done for you in the Server Setup script.
